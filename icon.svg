@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="110" fill="#7c6cf0"/>
+  <g fill="#ffffff">
+    <!-- 瓶身 -->
+    <rect x="206" y="180" width="100" height="200" rx="22"/>
+    <!-- 瓶盖 -->
+    <rect x="222" y="138" width="68" height="46" rx="12"/>
+    <!-- 滴管头 -->
+    <rect x="244" y="100" width="24" height="44" rx="10"/>
+    <!-- 高光 -->
+    <rect x="226" y="210" width="14" height="140" rx="7" fill="#efeafc"/>
+  </g>
+</svg>
