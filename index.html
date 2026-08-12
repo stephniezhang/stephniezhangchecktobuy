@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="护肤库存">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="./tesseract.min.js"></script>
 <style>
   :root{
     --bg:#f5f7fa; --panel:#ffffff; --ink:#2b2f36; --sub:#7a828f;
@@ -180,7 +180,7 @@
 <header>
   <div>
     <h1>🧴 护肤品库存管家</h1>
-    <div class="tip">手机电脑同网址即自动同步 · 数据存本机局域网 · 支持导入导出</div>
+    <div class="tip">手机电脑同网址即自动同步 · 数据存本机浏览器 · 支持导入导出</div>
   </div>
   <div class="stats" id="stats"></div>
 </header>
@@ -392,9 +392,9 @@
         <div class="section-title">🔄 两端同步</div>
         <p class="hint" id="syncState" style="margin:0 0 8px"></p>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn ghost" onclick="syncNow()">立即同步</button>
+          <button class="btn ghost" id="syncBtn" onclick="syncNow()">立即同步</button>
         </div>
-        <p class="hint" style="margin-top:8px">手机和电脑都打开同一个网址 <b>http://192.168.31.193:8080</b> 时，数据自动同步、两端共享（谁先改谁生效）。数据只存在你这台电脑的局域网服务里，不上公网。</p>
+        <p class="hint" id="syncHintText" style="margin-top:8px">手机和电脑都打开同一个网址 <b>http://192.168.31.193:8080</b> 时，数据自动同步、两端共享（谁先改谁生效）。数据只存在你这台电脑的局域网服务里，不上公网。</p>
       </div>
       <p class="hint" id="dataInfo"></p>
     </div>
@@ -415,13 +415,23 @@ let editingId=null;      // 正在编辑的物品 id（null=新增）
 const SYNC_URL='/api/inventory';
 let syncEnabled=(location.protocol==='http:'||location.protocol==='https:');
 let pushTimer=null, syncState='';
+
+// ===== 云端同步（Supabase）=====
+// 在 Supabase 后台建好表后，把下面两项填好即可开启「手机⇄电脑云端同步」。
+// 获取位置：Supabase 后台 → Project Settings → API → 复制 Project URL 与 anon/public key
+const SUPABASE_URL='https://qztbxdduczusrncazmos.supabase.co';          // 例如 https://xxxx.supabase.co
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6dGJ4ZGR1Y3p1c3JuY2F6bW9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY0MzM0MDAsImV4cCI6MjEwMjAwOTQwMH0.cR6N8-Q9F05tbia1TfqThaqgfocBYeK-RrCycsfaSB0';     // anon / public key（可安全公开嵌在网页里）
+const SUPABASE_TABLE='skincare_items';
+let cloudEnabled=!!(SUPABASE_URL && SUPABASE_ANON_KEY);
+function SBHeaders(){return {'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY};}
 // 列表是否显示照片（用户可在工具栏开关；默认显示）
 let showPhotos = localStorage.getItem('skincare_show_photos')!=='0';
 
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||[];}catch(e){return[];}}
 function save(){
   localStorage.setItem(KEY,JSON.stringify(items));
-  if(syncEnabled){clearTimeout(pushTimer);pushTimer=setTimeout(pushSync,400);}
+  if(cloudEnabled){clearTimeout(pushTimer);pushTimer=setTimeout(pushCloud,800);}
+  else if(syncEnabled){clearTimeout(pushTimer);pushTimer=setTimeout(pushSync,400);}
 }
 
 // 解析日期为 Date（兼容 8 位 YYYYMMDD 与 YYYY/MM/DD）
@@ -878,14 +888,17 @@ function preprocessImage(file){
 }
 
 async function recognizePhoto(){
-  if(typeof Tesseract==='undefined'){toast('识别引擎未加载（需联网首次下载）');return;}
+  if(typeof Tesseract==='undefined'){toast('识别引擎未加载（请确认 tesseract.min.js 已随站点一起上传）');return;}
   const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.capture='environment';
   inp.onchange=async()=>{
     const f=inp.files[0];if(!f)return;
-    showOCR(true,'正在识别…（首次需下载语言包，请稍候）');
+    showOCR(true,'正在识别…（首次需加载本地语言包，请稍候）');
     try{
       const canvas=await preprocessImage(f);
       const worker=await Tesseract.createWorker('chi_sim+eng',1,{
+        workerPath:'./worker.min.js',
+        corePath:'./',
+        langPath:'./tessdata',
         logger:p=>{if(p.status==='recognizing text')showOCR(true,'识别中… '+Math.round((p.progress||0)*100)+'%');}});
       await worker.setParameters({tessedit_pageseg_mode:3});   // 自动版面，更适合瓶身多段文字
       const {data:{text}}=await worker.recognize(canvas);
@@ -1261,19 +1274,61 @@ async function pushSync(){
     setSync(r.ok?'ok':'offline');
   }catch(e){ setSync('offline'); }
 }
-function setSync(s){
+function setSync(s,label){
   syncState=s;
   const el=document.getElementById('syncState');
   if(el){
-    if(s==='ok'){el.textContent='● 已同步（手机与电脑共享同一份数据）';el.style.color='var(--green)';}
+    const where=label?('（'+label+'）'):'（手机与电脑共享同一份数据）';
+    if(s==='ok'){el.textContent='● 已同步'+where;el.style.color='var(--green)';}
     else{el.textContent='○ 离线（仅本机保存）';el.style.color='var(--gray)';}
   }
 }
 async function syncNow(){
+  if(cloudEnabled){ await syncCloud(); return; }
   if(!syncEnabled){toast('仅当通过网址（http）打开时才能两端同步');return;}
   await pullSync(); await pushSync();
   refreshAll();renderStats();renderOutSelect();
   toast('🔄 已同步');
+}
+
+/* ---------- 云端同步（Supabase REST，无需加载 SDK，国内可直连） ---------- */
+// 拉取：GET 整张表 → 还原成物品数组 → 与本地按 id+updatedAt 合并（复用 mergeItems）
+async function pullCloud(){
+  if(!cloudEnabled) return;
+  try{
+    const r=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE+'?select=id,data,updated_at',{headers:SBHeaders(),cache:'no-store'});
+    if(!r.ok) throw new Error('http '+r.status);
+    const rows=await r.json();
+    const remote=Array.isArray(rows)?rows.map(x=>({...x.data,updatedAt:x.updated_at})):[];
+    const before=JSON.stringify(items);
+    items=mergeItems(items,remote);
+    localStorage.setItem(KEY,JSON.stringify(items));
+    if(before!==JSON.stringify(items)) refreshAll();
+    setSync('ok','云端');
+  }catch(e){ setSync('offline','云端'); }
+}
+// 推送：把本地全部物品 upsert 到云端（按 id 合并，幂等）
+async function pushCloud(){
+  if(!cloudEnabled) return;
+  try{
+    const pay=items.map(i=>({id:i.id,data:i,updated_at:i.updatedAt||new Date().toISOString()}));
+    const r=await fetch(SUPABASE_URL+'/rest/v1/'+SUPABASE_TABLE,{
+      method:'POST',
+      headers:Object.assign(SBHeaders(),{'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'}),
+      body:JSON.stringify(pay)
+    });
+    setSync(r.ok?'ok':'offline','云端');
+  }catch(e){ setSync('offline','云端'); }
+}
+// 一键同步：先拉后推，保证两端最终一致
+async function syncCloud(){
+  if(!cloudEnabled){toast('尚未配置云端：请在代码顶部填入 Supabase 地址与 anon key');return;}
+  try{
+    await pullCloud();
+    await pushCloud();
+    refreshAll();renderStats();renderOutSelect();
+    toast('🔄 已同步到云端');
+  }catch(e){ toast('同步失败，请检查网络或配置'); }
 }
 
 /* ---------- 分类下拉 ---------- */
@@ -1324,9 +1379,17 @@ document.getElementById('togglePhoto').addEventListener('change',e=>{
 });
 // 初始化：联网（http）时先从同步服务拉取共享数据，否则用本机缓存
 async function boot(){
-  if(syncEnabled){ try{ await pullSync(); }catch(e){} }
+  if(cloudEnabled){ try{ await pullCloud(); }catch(e){} }
+  else if(syncEnabled){ try{ await pullSync(); }catch(e){} }
   const tp=document.getElementById('togglePhoto'); if(tp) tp.checked=showPhotos;
   fillCatFilter(); refreshAll();
+  // 同步卡片文案：根据是否开启云端，显示对应说明与按钮文字
+  const hint=document.getElementById('syncHintText');
+  if(hint) hint.innerHTML = cloudEnabled
+    ? '手机和电脑都打开这个网址，点「<b>同步到云端</b>」即可让两端数据一致。数据存在你的 Supabase 云端，换设备不丢。'
+    : '手机和电脑都打开同一个网址 <b>'+location.origin+'</b> 时，数据自动同步、两端共享（谁先改谁生效）。';
+  const sbtn=document.getElementById('syncBtn');
+  if(sbtn) sbtn.textContent = cloudEnabled?'🔄 同步到云端':'立即同步';
 }
 boot();
 
