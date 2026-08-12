@@ -180,7 +180,7 @@
 <header>
   <div>
     <h1>🧴 护肤品库存管家</h1>
-    <div class="tip">手机电脑同网址即自动同步 · 数据存本机浏览器 · 支持导入导出</div>
+    <div class="tip">点「💾 备份 → 同步到云端」即可手机电脑共享 · 数据存本机 + Supabase 云端 · 支持导入导出</div>
   </div>
   <div class="stats" id="stats"></div>
 </header>
@@ -380,23 +380,26 @@
   <!-- 数据备份 -->
   <section id="view-data" style="display:none">
     <div class="card">
-      <div class="section-title">💾 数据备份与恢复</div>
-      <p class="hint">数据保存在本机浏览器（localStorage）。换电脑或清缓存前，请先导出备份。</p>
+      <div class="section-title">💾 数据备份与同步</div>
+
+      <div style="font-weight:700;margin:2px 0 4px">本机备份</div>
+      <p class="hint">数据自动存在本机浏览器。换设备或清缓存前，建议先导出一份备份。</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
         <button class="btn ghost" onclick="exportJSON()">⬇ 导出备份 (JSON)</button>
         <button class="btn ghost" onclick="document.getElementById('imp').click()">⬆ 导入备份</button>
         <input id="imp" type="file" accept="application/json" style="display:none" onchange="importJSON(this)">
-        <button class="btn red" onclick="clearAll()">🗑 清空全部数据</button>
       </div>
-      <div class="card" style="margin-top:14px;background:var(--brand-soft);border:none">
-        <div class="section-title">🔄 两端同步</div>
-        <p class="hint" id="syncState" style="margin:0 0 8px"></p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn ghost" id="syncBtn" onclick="syncNow()">立即同步</button>
-        </div>
-        <p class="hint" id="syncHintText" style="margin-top:8px">手机和电脑都打开同一个网址 <b>http://192.168.31.193:8080</b> 时，数据自动同步、两端共享（谁先改谁生效）。数据只存在你这台电脑的局域网服务里，不上公网。</p>
+
+      <div style="font-weight:700;margin:18px 0 4px">云端同步（手机 ⇄ 电脑）</div>
+      <p class="hint" id="syncState" style="margin:0 0 8px"></p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn green" id="syncBtn" onclick="syncNow()">立即同步</button>
       </div>
-      <p class="hint" id="dataInfo"></p>
+      <p class="hint" id="syncHintText" style="margin-top:8px"></p>
+
+      <hr style="border:none;border-top:1px solid var(--line);margin:18px 0 12px">
+      <button class="btn red sm" onclick="clearAll()">🗑 清空全部数据</button>
+      <p class="hint" id="dataInfo" style="margin-top:10px"></p>
     </div>
   </section>
 
