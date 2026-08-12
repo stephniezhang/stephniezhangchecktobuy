@@ -104,6 +104,21 @@
   .combo{margin:4px 0 2px;min-height:0;}
   .combo-btn{background:linear-gradient(120deg,#7c6cf0,#9b8cf6);color:#fff;border:none;font-weight:600;}
   .combo-btn:hover{filter:brightness(1.06);}
+  /* 视图切换 */
+  .view-toggle{display:inline-flex;background:var(--bg);border-radius:9px;padding:3px;gap:3px;}
+  .view-toggle button{border:none;background:transparent;color:var(--sub);padding:5px 10px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;}
+  .view-toggle button.active{background:#fff;color:var(--brand);box-shadow:0 1px 3px rgba(20,30,50,.08);}
+  /* 列表视图 */
+  .list{display:flex;flex-direction:column;gap:8px;}
+  .list-row{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;}
+  .list-row .main{min-width:0;}
+  .list-row .name{font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .list-row .sub{color:var(--sub);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .list-row .right{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+  .list-row .meta{display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--sub);}
+  .list-row .meta b{color:var(--ink);font-weight:600;}
+  .list-row .acts{display:flex;gap:5px;}
+  .list-row .btn{padding:5px 9px;font-size:12px;width:auto;}
 
   /* ===== 报表 ===== */
   .report-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
@@ -161,9 +176,13 @@
     input,select,textarea{padding:13px 12px;font-size:16px;border-radius:11px;}
     .btn{padding:14px 18px;font-size:16px;width:100%;}
     .btn.sm{width:auto;padding:9px 14px;font-size:14px;}
-    .toolbar{position:sticky;top:0;background:var(--bg);padding:8px 0;z-index:6;gap:8px;}
-    .toolbar input,.toolbar select{flex:1 1 100%;font-size:16px;}
-    .count{width:100%;margin:2px 0 0;}
+    .toolbar{position:sticky;top:0;background:var(--bg);padding:6px 0;z-index:6;gap:6px;}
+    .toolbar input,.toolbar select{flex:1 1 auto;min-width:0;font-size:14px;padding:8px 8px;}
+    .toolbar input::placeholder{font-size:13px;}
+    .count{width:100%;margin:2px 0 0;font-size:12px;}
+    .view-toggle button{padding:4px 8px;font-size:12px;}
+    .list-row{grid-template-columns:1fr;gap:6px;padding:10px;}
+    .list-row .right{justify-content:flex-start;}
     .grid{grid-template-columns:1fr;gap:12px;}
     .item-photo{height:180px;}
     .item .name{font-size:16px;}
@@ -180,13 +199,14 @@
 <header>
   <div>
     <h1>🧴 护肤品库存管家</h1>
-    <div class="tip">点「💾 备份 → 同步到云端」即可手机电脑共享 · 数据存本机 + Supabase 云端 · 支持导入导出</div>
+    <div class="tip">💾 备份 → 同步到云端，手机电脑共享</div>
   </div>
   <div class="stats" id="stats"></div>
 </header>
 
 <nav id="nav">
   <button data-view="all" class="active"><span class="ico">📦</span>库存</button>
+  <button data-view="inuse"><span class="ico">✅</span>正在用</button>
   <button data-view="in"><span class="ico">📥</span>入库</button>
   <button data-view="out"><span class="ico">📤</span>出库</button>
   <button data-view="alert"><span class="ico">⏰</span>临期</button>
@@ -199,28 +219,52 @@
 
   <!-- 全部库存 -->
   <section id="view-all">
-    <div class="toolbar">
-      <input id="search" placeholder="🔍 搜名称 / 品牌 / 功能…">
-      <select id="filterCat"><option value="">全部分类</option></select>
-      <select id="filterStatus">
-        <option value="">全部状态</option>
-        <option value="active">正常</option>
-        <option value="warn">临期</option>
-        <option value="expired">已过期</option>
-        <option value="usedup">已用完</option>
-      </select>
-      <select id="sortBy">
-        <option value="expiry">按到期日（近→远）</option>
-        <option value="updated">按最近更新</option>
-        <option value="name">按名称</option>
-        <option value="qty">按数量（多→少）</option>
-      </select>
-      <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--sub);white-space:nowrap;margin:0;cursor:pointer">
-        <input type="checkbox" id="togglePhoto" checked style="width:auto"> 显示照片
-      </label>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <div class="view-toggle" id="viewToggle">
+        <button data-mode="card" class="active">▦ 卡片</button>
+        <button data-mode="list">☰ 列表</button>
+      </div>
       <span class="count" id="countAll"></span>
     </div>
+    <div class="toolbar">
+      <input id="search" placeholder="🔍 名称/品牌/功能">
+      <select id="filterCat"><option value="">全部分类</option></select>
+      <select id="filterStatus">
+        <option value="">全部</option>
+        <option value="active">正常</option>
+        <option value="warn">临期</option>
+        <option value="expired">过期</option>
+        <option value="usedup">已用完</option>
+        <option value="inuse">正在用</option>
+      </select>
+      <select id="sortBy">
+        <option value="expiry">到期日</option>
+        <option value="updated">最近更新</option>
+        <option value="name">名称</option>
+        <option value="qty">数量</option>
+      </select>
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--sub);white-space:nowrap;margin:0;cursor:pointer">
+        <input type="checkbox" id="togglePhoto" checked style="width:auto"> 照片
+      </label>
+    </div>
     <div class="grid" id="grid"></div>
+  </section>
+
+  <!-- 正在使用 -->
+  <section id="view-inuse" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+      <div class="section-title" style="margin:0">✅ 正在使用 <span class="pill" id="inuseN">0</span></div>
+      <span class="count" id="countInuse"></span>
+    </div>
+    <div class="toolbar">
+      <input id="searchInuse" placeholder="🔍 名称/品牌/功能">
+      <select id="sortInuse">
+        <option value="expiry">按到期日</option>
+        <option value="updated">最近更新</option>
+        <option value="name">按名称</option>
+      </select>
+    </div>
+    <div class="grid" id="gridInuse"></div>
   </section>
 
   <!-- 入库登记 -->
@@ -235,7 +279,7 @@
             <option>洁面</option><option>化妆水</option><option>精华</option><option>面霜</option>
             <option>眼霜</option><option>护手霜</option><option>精油</option><option>防晒</option>
             <option>卸妆</option><option>面膜</option><option>唇膏</option><option>彩妆</option>
-            <option>香水</option><option>身体护理</option><option>美妆工具</option><option>其他</option>
+            <option>香水</option><option>身体护理</option><option>美妆工具</option><option>乳液</option><option>其他</option>
           </select>
         </div>
       </div>
@@ -249,13 +293,10 @@
         <div class="field"><label>单位</label>
           <select id="i-unit"><option>瓶</option><option>支</option><option>片</option><option>盒</option><option>个</option></select>
         </div>
+        <div class="field"><label>容量（可选，如 30ml / 50g）</label><input id="i-cap" placeholder="如 30ml"></div>
         <div class="field"><label>单价（¥，可选，用于成本统计）</label><input id="i-price" type="number" min="0" step="0.01" placeholder="如 320"></div>
       </div>
-      <div class="row" style="align-items:center;margin-top:-2px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sub);cursor:pointer;margin:0">
-          <input type="checkbox" id="autofillOn" style="width:auto"> 同名时自动补全品牌 / 分类 / 功能等空字段
-        </label>
-      </div>
+      <p class="hint" style="margin-top:-4px">💡 输入已有名称，自动补全品牌、分类、容量。</p>
       <div class="row">
         <div class="field"><label>购买日期（8位：YYYYMMDD）</label><input id="i-buy" type="text" placeholder="如 20240315" inputmode="numeric"></div>
         <div class="field"><label>到期日（8位 YYYYMMDD，可选）</label><input id="i-exp" type="text" placeholder="如 20260930" inputmode="numeric"></div>
@@ -263,21 +304,28 @@
       </div>
       <div class="row">
         <div class="field"><label>存放位置（下方点选历史位置）</label><input id="i-loc" autocomplete="off" placeholder="如：浴室柜 / 梳妆台"></div>
-        <div class="field"><label>备注</label><input id="i-note" placeholder="容量、系列等"></div>
+        <div class="field"><label>备注</label><input id="i-note" placeholder="系列、备注等"></div>
       </div>
       <div class="chips" id="locChips"></div>
       </div>
-      <button class="btn" style="width:100%;background:linear-gradient(120deg,#7c6cf0,#9b8cf6);margin-bottom:10px" onclick="recognizePhoto()">📸 拍照并识别瓶身（名称 / 品牌 / 生产日期 / 保质期）</button>
-      <div class="row">
-        <div class="field" style="flex:2"><label>瓶身照片（可选，自动压缩；不想识别也能手动添加）</label><input id="i-photo" type="file" accept="image/*" capture="environment"></div>
+      <div style="margin-top:14px">
+        <button class="btn" id="submitBtn" style="width:100%;padding:16px;font-size:18px;font-weight:700;background:linear-gradient(120deg,#7c6cf0,#9b8cf6)" onclick="addItem()">+ 入库</button>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+          <button class="btn ghost" id="cancelEdit" style="display:none" onclick="cancelEdit()">取消</button>
+          <span id="editHint" class="hint" style="display:none">正在编辑已有物品，保存后信息将更新。</span>
+        </div>
       </div>
-      <button id="rmPhoto" type="button" class="btn ghost" style="display:none;padding:6px 12px;font-size:13px;margin-bottom:8px" onclick="removePendingPhoto()">🗑 移除当前照片</button>
-      <div id="ocrRaw" style="display:none;white-space:pre-wrap;font-size:12px;color:var(--sub);background:var(--bg);border-radius:9px;padding:8px 10px;margin-bottom:10px;max-height:130px;overflow:auto;"></div>
-      <div style="margin-top:8px">
-        <button class="btn" id="submitBtn" onclick="addItem()">+ 入库</button>
-        <button class="btn ghost" id="cancelEdit" style="display:none" onclick="cancelEdit()">取消</button>
-        <span id="editHint" class="hint" style="display:none">正在编辑已有物品，保存后信息将更新。</span>
-        <span class="hint">识别结果已预填（日期为 8 位 YYYYMMDD，前 4 位年份、后 4 位月日），请核对名称/品牌后入库。填了「开封后保质期」开封时自动算到期日。</span></div>
+      <div style="margin-top:14px;border-top:1px dashed var(--line);padding-top:14px">
+        <div class="row">
+          <div class="field" style="flex:2"><label>瓶身照片（可选，自动压缩；不想识别也能手动添加）</label><input id="i-photo" type="file" accept="image/*" capture="environment"></div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+          <button class="btn sm" style="background:linear-gradient(120deg,#7c6cf0,#9b8cf6)" onclick="recognizePhoto()">📸 拍照识别瓶身</button>
+          <button id="rmPhoto" type="button" class="btn ghost" style="display:none;padding:6px 12px;font-size:13px" onclick="removePendingPhoto()">🗑 移除照片</button>
+        </div>
+        <div id="ocrRaw" style="display:none;white-space:pre-wrap;font-size:12px;color:var(--sub);background:var(--bg);border-radius:9px;padding:8px 10px;margin-bottom:10px;max-height:130px;overflow:auto;"></div>
+        <span class="hint">拍照识别后请核对结果再入库。填「开封后保质期」可自动算到期日。</span>
+      </div>
     </div>
   </section>
 
@@ -340,7 +388,7 @@
     <div class="two-col">
     <div class="card">
       <div class="section-title">💸 单品平均月花费 TOP<span class="pill">¥/月</span></div>
-      <p class="hint">按"累计消耗金额 ÷ 已记录月数"排序，先看哪些单品最费钱。</p>
+      <p class="hint">累计消耗金额 ÷ 记录月数。</p>
       <div id="itemAvgChart"></div>
     </div>
 
@@ -362,13 +410,13 @@
 
     <div class="card">
       <div class="section-title">🥧 分类花费占比<span class="pill">累计消耗金额</span></div>
-      <p class="hint">钱主要花在哪些品类上，一目了然。</p>
+      <p class="hint">累计消耗金额按品类占比。</p>
       <div id="catCostChart"></div>
     </div>
 
     <div class="card">
       <div class="section-title">⏰ 临期 / 过期清单<span class="pill" id="expListN">0</span></div>
-      <p class="hint">按剩余天数排序，先看最该赶紧用完的。可导出 CSV 带走或发给家人。</p>
+      <p class="hint">按剩余天数排序，优先用完靠前的。可导出 CSV。</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin:8px 0">
         <button class="btn ghost" onclick="exportExpiryCSV()">⬇ 导出临期清单 (CSV)</button>
         <button class="btn ghost" onclick="exportUsageCSV()">⬇ 导出消耗明细 (CSV)</button>
@@ -383,7 +431,7 @@
       <div class="section-title">💾 数据备份与同步</div>
 
       <div style="font-weight:700;margin:2px 0 4px">本机备份</div>
-      <p class="hint">数据自动存在本机浏览器。换设备或清缓存前，建议先导出一份备份。</p>
+      <p class="hint">换设备或清缓存前，先导出备份。</p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
         <button class="btn ghost" onclick="exportJSON()">⬇ 导出备份 (JSON)</button>
         <button class="btn ghost" onclick="document.getElementById('imp').click()">⬆ 导入备份</button>
@@ -395,7 +443,7 @@
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="btn green" id="syncBtn" onclick="syncNow()">立即同步</button>
       </div>
-      <p class="hint" id="syncHintText" style="margin-top:8px"></p>
+      <p class="hint" id="syncHintText" style="margin-top:8px">点「同步到云端」让手机电脑数据一致。</p>
 
       <hr style="border:none;border-top:1px solid var(--line);margin:18px 0 12px">
       <button class="btn red sm" onclick="clearAll()">🗑 清空全部数据</button>
@@ -429,6 +477,8 @@ let cloudEnabled=!!(SUPABASE_URL && SUPABASE_ANON_KEY);
 function SBHeaders(){return {'apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY};}
 // 列表是否显示照片（用户可在工具栏开关；默认显示）
 let showPhotos = localStorage.getItem('skincare_show_photos')!=='0';
+// 库存视图模式：card / list（默认卡片）
+let viewMode = localStorage.getItem('skincare_view_mode')==='list'?'list':'card';
 
 function load(){try{return JSON.parse(localStorage.getItem(KEY))||[];}catch(e){return[];}}
 function save(){
@@ -497,60 +547,114 @@ function renderStats(){
   const warn=items.filter(i=>statusOf(i)==='warn').length;
   const exp=items.filter(i=>statusOf(i)==='expired').length;
   const used=items.filter(i=>i.status==='usedup').length;
+  const inuse=items.filter(i=>i.inUse && i.status!=='usedup').length;
   document.getElementById('stats').innerHTML=
     `<div class="stat"><b>${kinds}</b>在库种类</div>
      <div class="stat"><b>${total}</b>件库存</div>
+     <div class="stat" style="background:${inuse?'rgba(26,157,90,.22)':'rgba(255,255,255,.16)'}"><b>${inuse}</b>正在用</div>
      <div class="stat" style="background:${warn?'rgba(245,146,27,.25)':'rgba(255,255,255,.16)'}"><b>${warn}</b>临期</div>
      <div class="stat" style="background:${exp?'rgba(229,72,77,.3)':'rgba(255,255,255,.16)'}"><b>${exp}</b>过期</div>
      <div class="stat"><b>${used}</b>已用完</div>`;
 }
 
 /* ---------- 全部库存 ---------- */
+function itemData(it){
+  const s=statusOf(it), e=expiryOf(it), d=daysLeft(e);
+  const scls={active:'',warn:'warn',expired:'danger',usedup:'done'}[s];
+  const fns=(it.functions||[]).map(f=>`<span class="badge fn">${f}</span>`).join('');
+  let expTxt = e? `${fmtDate(e)} · ${d<0?'已超'+Math.abs(d)+'天':d+'天后'}` : '未设置';
+  const expStyle=d!==null&&d<0?'color:var(--red)':(d!==null&&d<=WARN_DAYS?'color:var(--orange)':'');
+  const photoBtn = it.photo
+    ? `<button class="photo-btn" onclick="changePhoto('${it.id}')">换照片</button><button class="photo-btn" onclick="deletePhoto('${it.id}')">删照片</button>`
+    : `<button class="photo-btn" onclick="changePhoto('${it.id}')">加照片</button>`;
+  return {s,scls,fns,e,d,expTxt,expStyle,photoBtn};
+}
+function cardHTML(it){
+  const d=itemData(it);
+  return `<div class="item">
+    <button class="del" title="删除" onclick="delItem('${it.id}')">✕</button>
+    ${(showPhotos&&it.photo)?`<img class="item-photo" src="${it.photo}" alt="瓶身" onclick="zoom('${it.id}')">`:''}
+    <div class="name">${it.name} <span class="badge ${d.scls}">${statusLabel(d.s)}</span>${it.inUse?`<span class="badge" style="background:#e6f7ee;color:#1a9d5a">在用</span>`:''}</div>
+    <div class="brand">${it.brand||'—'} · ${it.category}</div>
+    <div class="badges">${d.fns}</div>
+    <div class="meta">
+      <span>库存</span><b>${it.quantity} ${it.unit||''}</b>
+      <span>容量</span><b>${it.capacity||'—'}</b>
+      <span>到期</span><b style="${d.expStyle}">${d.expTxt}</b>
+      <span>购买</span><b>${fmtDate(it.purchaseDate)}</b>
+      ${it.openDate?`<span>开封</span><b>${fmtDate(it.openDate)}</b>`:''}
+      ${it.location?`<span>位置</span><b>${it.location}</b>`:''}
+    </div>
+    <div class="acts">
+      <button class="btn sm green" onclick="quickUse('${it.id}')">用掉1${it.unit||''}</button>
+      <button class="btn sm ghost" onclick="quickOpen('${it.id}')">开封</button>
+      <button class="btn sm ${it.inUse?'green':'ghost'}" onclick="toggleInUse('${it.id}')">${it.inUse?'✔ 在用':'标记在用'}</button>
+      <button class="btn sm ghost" onclick="editItem('${it.id}')">编辑</button>
+      ${d.photoBtn}
+    </div>
+  </div>`;
+}
+function rowHTML(it){
+  const d=itemData(it);
+  return `<div class="list-row">
+    <div class="main">
+      <div class="name">${it.name} <span class="badge ${d.scls}">${statusLabel(d.s)}</span>${it.inUse?`<span class="badge" style="background:#e6f7ee;color:#1a9d5a">在用</span>`:''}</div>
+      <div class="sub">${it.brand||'—'} · ${it.category}${it.capacity?' · '+it.capacity:''} · 到期 <b style="${d.expStyle}">${d.expTxt}</b></div>
+    </div>
+    <div class="right">
+      <div class="meta"><b>${it.quantity}${it.unit||''}</b></div>
+      <div class="acts">
+        <button class="btn sm green" onclick="quickUse('${it.id}')">用</button>
+        <button class="btn sm ghost" onclick="quickOpen('${it.id}')">开封</button>
+        <button class="btn sm ${it.inUse?'green':'ghost'}" onclick="toggleInUse('${it.id}')">${it.inUse?'✔':'用'}</button>
+        <button class="btn sm ghost" onclick="editItem('${it.id}')">编辑</button>
+      </div>
+    </div>
+  </div>`;
+}
+function applyFilters(list,q,cat,st){
+  if(q) list=list.filter(it=>(it.name+' '+it.brand+' '+(it.functions||[]).join(' ')).toLowerCase().includes(q));
+  if(cat) list=list.filter(it=>it.category===cat);
+  if(st){
+    if(st==='inuse') list=list.filter(it=>it.inUse && it.status!=='usedup');
+    else list=list.filter(it=>statusOf(it)===st);
+  }
+  return list;
+}
+function sortItems(list,sort){
+  const e=it=>expiryOf(it);
+  if(sort==='expiry') list.sort((a,b)=>((e(a)||'9999').localeCompare(e(b)||'9999')));
+  else if(sort==='updated') list.sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
+  else if(sort==='name') list.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sort==='qty') list.sort((a,b)=>(+b.quantity||0)-(+a.quantity||0));
+  return list;
+}
 function renderAll(){
   const q=document.getElementById('search').value.trim().toLowerCase();
   const cat=document.getElementById('filterCat').value;
   const st=document.getElementById('filterStatus').value;
   const sort=document.getElementById('sortBy').value;
-  let list=items.map(it=>({...it,_s:statusOf(it),_e:expiryOf(it)}));
-  if(q) list=list.filter(it=>(it.name+' '+it.brand+' '+(it.functions||[]).join(' ')).toLowerCase().includes(q));
-  if(cat) list=list.filter(it=>it.category===cat);
-  if(st) list=list.filter(it=>it._s===st);
-  if(sort==='expiry') list.sort((a,b)=>((a._e||'9999').localeCompare(b._e||'9999')));
-  else if(sort==='updated') list.sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
-  else if(sort==='name') list.sort((a,b)=>a.name.localeCompare(b.name));
-  else if(sort==='qty') list.sort((a,b)=>(+b.quantity||0)-(+a.quantity||0));
+  let list=applyFilters([...items],q,cat,st);
+  list=sortItems(list,sort);
   document.getElementById('countAll').textContent=`共 ${list.length} 件`;
   const g=document.getElementById('grid');
-  if(!list.length){g.innerHTML='<div class="empty">没有匹配的物品，去「入库登记」添加吧～</div>';return;}
-  g.innerHTML=list.map(it=>{
-    const scls={active:'',warn:'warn',expired:'danger',usedup:'done'}[it._s];
-    const fns=(it.functions||[]).map(f=>`<span class="badge fn">${f}</span>`).join('');
-    const e=it._e; const d=daysLeft(e);
-    let expTxt = e? `${fmtDate(e)}（${d<0?'已超 '+Math.abs(d)+' 天':d+' 天后'}）` : '未设置';
-    const photoBtn = it.photo
-      ? `<button class="photo-btn" onclick="changePhoto('${it.id}')">换照片</button><button class="photo-btn" onclick="deletePhoto('${it.id}')">删照片</button>`
-      : `<button class="photo-btn" onclick="changePhoto('${it.id}')">加照片</button>`;
-    return `<div class="item">
-      <button class="del" title="删除" onclick="delItem('${it.id}')">✕</button>
-      ${(showPhotos&&it.photo)?`<img class="item-photo" src="${it.photo}" alt="瓶身" onclick="zoom('${it.id}')">`:''}
-      <div class="name">${it.name} <span class="badge ${scls}">${statusLabel(it._s)}</span></div>
-      <div class="brand">${it.brand||'—'} · ${it.category}</div>
-      <div class="badges">${fns}</div>
-      <div class="meta">
-        <span>库存</span><b>${it.quantity} ${it.unit||''}</b>
-        <span>到期</span><b>${expTxt}</b>
-        <span>购买</span><b>${fmtDate(it.purchaseDate)}</b>
-        ${it.openDate?`<span>开封</span><b>${fmtDate(it.openDate)}</b>`:''}
-        ${it.location?`<span>位置</span><b>${it.location}</b>`:''}
-      </div>
-      <div class="acts">
-        <button class="btn sm green" onclick="quickUse('${it.id}')">用掉1${it.unit||''}</button>
-        <button class="btn sm ghost" onclick="quickOpen('${it.id}')">开封</button>
-        <button class="btn sm ghost" onclick="editItem('${it.id}')">编辑</button>
-        ${photoBtn}
-      </div>
-    </div>`;
-  }).join('');
+  if(!list.length){g.className='grid';g.innerHTML='<div class="empty">没有匹配的物品</div>';return;}
+  g.className=viewMode==='list'?'list':'grid';
+  const html=viewMode==='list'?list.map(rowHTML).join(''):list.map(cardHTML).join('');
+  g.innerHTML=html;
+}
+function renderInUse(){
+  const q=document.getElementById('searchInuse').value.trim().toLowerCase();
+  const sort=document.getElementById('sortInuse').value;
+  let list=items.filter(it=>it.inUse && it.status!=='usedup');
+  if(q) list=list.filter(it=>(it.name+' '+it.brand+' '+(it.functions||[]).join(' ')).toLowerCase().includes(q));
+  list=sortItems(list,sort);
+  document.getElementById('inuseN').textContent=list.length;
+  document.getElementById('countInuse').textContent=`共 ${list.length} 件`;
+  const g=document.getElementById('gridInuse');
+  if(!list.length){g.className='grid';g.innerHTML='<div class="empty">没有正在使用的物品。在库存页点「标记在用」即可加入。</div>';return;}
+  g.className=viewMode==='list'?'list':'grid';
+  g.innerHTML=viewMode==='list'?list.map(rowHTML).join(''):list.map(cardHTML).join('');
 }
 
 /* ---------- 入库 / 编辑保存 ---------- */
@@ -574,6 +678,7 @@ async function addItem(){
     expiryDate:cleanDate(document.getElementById('i-exp').value),
     paoMonths:document.getElementById('i-pao').value?parseInt(document.getElementById('i-pao').value):null,
     location:document.getElementById('i-loc').value.trim(),
+    capacity:document.getElementById('i-cap').value.trim(),
     notes:document.getElementById('i-note').value.trim(),
     photo,
     price:parsePrice(document.getElementById('i-price').value),
@@ -602,7 +707,7 @@ async function addItem(){
 function resetForm(){
   editingId=null;
   pendingPhoto=null;
-  ['i-name','i-brand','i-fn','i-buy','i-exp','i-pao','i-loc','i-note','i-price'].forEach(id=>{document.getElementById(id).value='';});
+  ['i-name','i-brand','i-fn','i-buy','i-exp','i-pao','i-loc','i-note','i-price','i-cap'].forEach(id=>{document.getElementById(id).value='';});
   document.getElementById('i-qty').value=1;
   document.getElementById('i-cat').selectedIndex=0;
   document.getElementById('i-unit').selectedIndex=0;
@@ -620,7 +725,8 @@ function resetForm(){
 /* ---------- 编辑已有物品 ---------- */
 function switchView(v){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
-  ['all','in','out','alert','feed','report','data'].forEach(x=>document.getElementById('view-'+x).style.display=(x===v?'block':'none'));
+  ['all','inuse','in','out','alert','feed','report','data'].forEach(x=>document.getElementById('view-'+x).style.display=(x===v?'block':'none'));
+  if(v==='inuse')renderInUse();
   if(v==='alert')renderAlert();
   if(v==='feed')renderFeed();
   if(v==='report')renderReport();
@@ -641,6 +747,7 @@ function editItem(id){
   document.getElementById('i-pao').value=it.paoMonths||'';
   document.getElementById('i-loc').value=it.location||'';
   document.getElementById('i-note').value=it.notes||'';
+  document.getElementById('i-cap').value=it.capacity||'';
   document.getElementById('i-price').value=(it.price!=null?it.price:'');
   pendingPhoto=it.photo||null;
   const rp=document.getElementById('rmPhoto');if(rp)rp.style.display=it.photo?'inline-block':'none';
@@ -725,7 +832,6 @@ function removePendingPhoto(){
 // 新录入时，名称与历史一致则自动补全其它空字段（不打扰 OCR 已识别的内容）
 function onNameChange(){
   if(editingId) return;
-  if(!document.getElementById('autofillOn').checked) return;
   const nm=document.getElementById('i-name').value.trim();
   if(!nm) return;
   const match=items.find(i=>i.name===nm);
@@ -733,6 +839,7 @@ function onNameChange(){
   const fill=(id,val)=>{const el=document.getElementById(id);if(el&&!el.value.trim()&&val)el.value=val;};
   fill('i-brand',match.brand);
   fill('i-cat',match.category);
+  fill('i-cap',match.capacity);
   fill('i-fn',(match.functions||[]).join(', '));
   fill('i-unit',match.unit);
   fill('i-pao',match.paoMonths||'');
@@ -753,6 +860,7 @@ function applyCombo(nm){
   const fill=(id,val)=>{const el=document.getElementById(id);if(el&&!el.value.trim()&&val)el.value=val;};
   fill('i-brand',match.brand);
   fill('i-cat',match.category);
+  fill('i-cap',match.capacity);
   fill('i-fn',(match.functions||[]).join(', '));
   fill('i-unit',match.unit);
   fill('i-pao',match.paoMonths||'');
@@ -937,17 +1045,17 @@ function outItem(){
   const qty=Math.max(1,parseInt(document.getElementById('o-qty').value)||1);
   const note=document.getElementById('o-note').value.trim();
   if(type==='out'){
-    if(qty>=it.quantity){it.status='usedup';it.quantity=0;
+    if(qty>=it.quantity){it.status='usedup';it.quantity=0;it.inUse=false;
       it.logs.push({type:'usedup',date:today(),qty,note:note||'用完'});
       toast('🟢 已记为用完：'+it.name);}
     else{it.quantity-=qty;it.logs.push({type:'out',date:today(),qty,note});
       toast('📤 已用掉 '+qty+(it.unit||'')+'：'+it.name);}
   }else if(type==='open'){
-    it.openDate=today();
+    it.openDate=today();it.inUse=true;
     it.logs.push({type:'open',date:it.openDate,qty:0,note:note||'开封'});
     toast('🔓 已开封：'+it.name+(it.paoMonths?`（${it.paoMonths}个月后到期）`:''));
   }else if(type==='usedup'){
-    it.status='usedup';const left=it.quantity;it.quantity=0;
+    it.status='usedup';it.inUse=false;const left=it.quantity;it.quantity=0;
     it.logs.push({type:'usedup',date:today(),qty:left,note:note||'用完/丢弃'});
     toast('🟢 已用完：'+it.name);
   }
@@ -956,13 +1064,16 @@ function outItem(){
   document.getElementById('o-note').value='';
 }
 function quickUse(id){const it=items.find(i=>i.id===id);if(!it)return;
-  if(it.quantity<=1){it.status='usedup';it.quantity=0;it.logs.push({type:'usedup',date:today(),qty:1,note:'用完'});toast('🟢 已用完：'+it.name);}
+  if(it.quantity<=1){it.status='usedup';it.quantity=0;it.inUse=false;it.logs.push({type:'usedup',date:today(),qty:1,note:'用完'});toast('🟢 已用完：'+it.name);}
   else{it.quantity-=1;it.logs.push({type:'out',date:today(),qty:1,note:''});toast('📤 用掉1'+(it.unit||''));}
   it.updatedAt=new Date().toISOString();save();renderAll();renderStats();renderOutSelect();renderFeed();renderAlert();}
 function quickOpen(id){const it=items.find(i=>i.id===id);if(!it)return;
-  it.openDate=today();
+  it.openDate=today();it.inUse=true;
   it.logs.push({type:'open',date:it.openDate,qty:0,note:'开封'});
-  it.updatedAt=new Date().toISOString();save();renderAll();renderStats();renderFeed();renderAlert();toast('🔓 已开封');}
+  it.updatedAt=new Date().toISOString();save();renderAll();renderStats();renderOutSelect();renderFeed();renderAlert();toast('🔓 已开封');}
+function toggleInUse(id){const it=items.find(i=>i.id===id);if(!it)return;
+  it.inUse=!it.inUse;it.updatedAt=new Date().toISOString();
+  save();renderAll();renderStats();toast(it.inUse?'已标记为在用：'+it.name:'已停用：'+it.name);}
 
 /* ---------- 删除 ---------- */
 function delItem(id){if(!confirm('确定删除该物品？'))return;
@@ -1009,7 +1120,7 @@ function importJSON(input){const f=input.files[0];if(!f)return;
   r.readAsText(f);input.value='';}
 function clearAll(){if(!confirm('⚠️ 将清空全部库存数据，且无法恢复（请先导出备份）！确定？'))return;
   items=[];save();refreshAll();toast('已清空');}
-function refreshAll(){renderAll();renderStats();renderOutSelect();renderFeed();renderAlert();updateDataInfo();refreshSuggestions();
+function refreshAll(){renderAll();renderInUse();renderStats();renderOutSelect();renderFeed();renderAlert();updateDataInfo();refreshSuggestions();
   if(document.getElementById('view-report').style.display!=='none')renderReport();}
 function updateDataInfo(){document.getElementById('dataInfo').textContent=`当前共 ${items.length} 件物品。`;}
 
@@ -1335,8 +1446,15 @@ async function syncCloud(){
 }
 
 /* ---------- 分类下拉 ---------- */
+function sortCats(arr){return [...arr].sort((a,b)=>String(a).localeCompare(String(b),'zh-Hans-CN'));}
+function sortCatSelect(){
+  const sel=document.getElementById('i-cat');if(!sel)return;
+  const opts=[...sel.options].map(o=>o.value);
+  const sorted=sortCats(opts);
+  sel.innerHTML=sorted.map(c=>`<option>${c}</option>`).join('');
+}
 function fillCatFilter(){
-  const cats=[...new Set(items.map(i=>i.category))];
+  const cats=sortCats([...new Set(items.map(i=>i.category))]);
   const sel=document.getElementById('filterCat');
   const cur=sel.value;
   sel.innerHTML='<option value="">全部分类</option>'+cats.map(c=>`<option>${c}</option>`).join('');
@@ -1354,9 +1472,20 @@ document.getElementById('search').addEventListener('input',renderAll);
 document.getElementById('filterCat').addEventListener('change',renderAll);
 document.getElementById('filterStatus').addEventListener('change',renderAll);
 document.getElementById('sortBy').addEventListener('change',renderAll);
+// 首页视图切换（卡片 / 列表）
+document.getElementById('viewToggle').addEventListener('click',e=>{
+  if(e.target.tagName!=='BUTTON')return;
+  viewMode=e.target.dataset.mode;
+  localStorage.setItem('skincare_view_mode',viewMode);
+  document.querySelectorAll('#viewToggle button').forEach(b=>b.classList.toggle('active',b.dataset.mode===viewMode));
+  renderAll();
+});
+// 正在用页搜索/排序
+document.getElementById('searchInuse').addEventListener('input',renderInUse);
+document.getElementById('sortInuse').addEventListener('change',renderInUse);
 // 名称输入：与历史一致时自动补全其它字段，提高重复录入效率
+document.getElementById('i-name').addEventListener('input',()=>{updateCombo();onNameChange();});
 document.getElementById('i-name').addEventListener('change',onNameChange);
-document.getElementById('i-name').addEventListener('input',updateCombo);
 // 功能标签输入时，按当前片段过滤下方历史标签 chip
 document.getElementById('i-fn').addEventListener('input',()=>{
   const v=document.getElementById('i-fn').value;
@@ -1370,10 +1499,6 @@ document.getElementById('i-loc').addEventListener('input',()=>{
   const all=(document.getElementById('locChips')._all)||[];
   renderLocChips(v?all.filter(t=>t.toLowerCase().includes(v)):all);
 });
-// 同名自动补全开关（记忆用户偏好）
-const afEl=document.getElementById('autofillOn');
-if(afEl){const saved=localStorage.getItem('skincare_autofill');afEl.checked=(saved===null?true:saved==='1');
-  afEl.addEventListener('change',()=>localStorage.setItem('skincare_autofill',afEl.checked?'1':'0'));}
 // 工具栏「显示照片」开关
 document.getElementById('togglePhoto').addEventListener('change',e=>{
   showPhotos=e.target.checked;
@@ -1385,12 +1510,8 @@ async function boot(){
   if(cloudEnabled){ try{ await pullCloud(); }catch(e){} }
   else if(syncEnabled){ try{ await pullSync(); }catch(e){} }
   const tp=document.getElementById('togglePhoto'); if(tp) tp.checked=showPhotos;
-  fillCatFilter(); refreshAll();
-  // 同步卡片文案：根据是否开启云端，显示对应说明与按钮文字
-  const hint=document.getElementById('syncHintText');
-  if(hint) hint.innerHTML = cloudEnabled
-    ? '手机和电脑都打开这个网址，点「<b>同步到云端</b>」即可让两端数据一致。数据存在你的 Supabase 云端，换设备不丢。'
-    : '手机和电脑都打开同一个网址 <b>'+location.origin+'</b> 时，数据自动同步、两端共享（谁先改谁生效）。';
+  document.querySelectorAll('#viewToggle button').forEach(b=>b.classList.toggle('active',b.dataset.mode===viewMode));
+  sortCatSelect(); fillCatFilter(); refreshAll();
   const sbtn=document.getElementById('syncBtn');
   if(sbtn) sbtn.textContent = cloudEnabled?'🔄 同步到云端':'立即同步';
 }
